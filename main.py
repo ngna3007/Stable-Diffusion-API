@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import torch
-import torch_directml
 from diffusers import StableDiffusionPipeline
 from fastapi.responses import Response
 import io
@@ -18,19 +17,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize DirectML device
-dml = torch_directml.device()
-
-# Load Stable Diffusion model
-# Load the model with proper authentication
+# Load Stable Diffusion model on CPU
 model_id = "sd-legacy/stable-diffusion-v1-5"
-pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
-pipe = pipe.to(dml)
+pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+pipe = pipe.to("cpu")
 
 # Load LoRA Model
 lora_model_path = "./Super Ani ver2_v2.0.safetensors"
 try:
-    pipe.load_lora_weights(lora_model_path, weights = 1.2)
+    pipe.load_lora_weights(lora_model_path, weights=1.2)
     pipe.fuse_lora()
     pipe.unet.set_default_attn_processor()
     print("LoRA model loaded successfully.")
@@ -47,9 +42,9 @@ def generate(
     sampler: str = Query("DPM++ 2M Karras", description="Sampling method"),
     seed: int = Query(None, description="Random seed")
 ):
-
     # Apply LoRA trigger word (if applicable)
     prompt = f"by Super Ani, {prompt}"
+    
     # If seed is provided, set the generator to control randomness
     if seed is not None:
         generator = torch.manual_seed(seed)
@@ -71,4 +66,3 @@ def generate(
     img_io.seek(0)
 
     return Response(content=img_io.getvalue(), media_type="image/png")
-
