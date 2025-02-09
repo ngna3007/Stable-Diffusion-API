@@ -40,3 +40,4 @@ onnxruntime
 optimum>=1.23
 olive-ai
 peft
+torch_directml
